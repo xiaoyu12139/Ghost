@@ -734,6 +734,42 @@ export default class LexicalEditorController extends Controller {
             return;
         }
 
+        try {
+            // 1. 通过后端 API 获取默认 tag id
+            let REQUIRED_TAG_ID = null;
+            let response = yield fetch('/ghost/api/v3/admin/custom-ghost-config?key=defaultTagId');
+            if (response.ok) {
+                let data = yield response.json();
+                // 兼容后端返回 {value: ...}
+                REQUIRED_TAG_ID = data.value.id;
+                console.log('default tag from backend:', data);
+                 // 2. 检查并自动添加标签
+                let tagExists = this.post.tags.mapBy('id').includes(REQUIRED_TAG_ID);
+                if (tagExists) {
+                    console.log('标签已存在');
+                } else {
+                    console.log('标签不存在，自动添加');
+                    let tag = yield this.store.findRecord('tag', REQUIRED_TAG_ID);
+                    this.post.tags.pushObject(tag);
+                }
+            } else {
+                // 读取后端返回的错误信息
+                let errorMsg = '获取默认 tag 失败';
+                try {
+                    let errData = yield response.json();
+                    if (errData && errData.error) {
+                        errorMsg = errData.error;
+                    }
+                } catch (e) {}
+                this.notifications.showAlert(errorMsg, {type: 'error'});
+                console.error(errorMsg);
+            }
+        } catch (e) {
+            console.error('获取默认 tag 异常，使用默认 id', e);
+        }
+
+       
+
         if (this.post.status === 'draft') {
             if (this.post.titleScratch !== this.post.title) {
                 yield this.generateSlugTask.perform();

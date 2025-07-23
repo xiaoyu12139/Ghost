@@ -48,6 +48,39 @@ const siteIdMiddleware = function siteIdMiddleware(req, res, next) {
 
 const rootApp = () => {
     const app = express('root');
+
+    app.get('/ghost/api/v3/admin/default-tag', (req, res) => {
+        // 读取文件或返回你想要的数据
+        res.json({id: '000000008292eb1a4db37ea9', name: 'Default Tag'});
+    });
+
+    app.get('/ghost/api/v3/admin/custom-ghost-config', (req, res) => {
+        const key = req.query.key;
+        // 读取当前用户主目录下的 custom-ghost-config.json
+        const os = require('os');
+        const fs = require('fs');
+        const path = require('path');
+        const userHomeDir = os.homedir();
+        const filePath = path.join(userHomeDir, 'custom-ghost-config.json');
+        let config = {};
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                error: `Custom Config file not found: ${filePath}`
+            });
+        }
+        try {
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+            config = JSON.parse(fileContent);
+        } catch (e) {
+            return res.status(500).json({error: 'Config file invalid'});
+        }
+        if (key && config[key] !== undefined) {
+            res.json({value: config[key]});
+        } else {
+            res.status(400).json({error: 'Invalid key'});
+        }
+    });
+
     app.use(sentry.requestHandler);
     if (config.get('sentry')?.tracing?.enabled === true) {
         app.use(sentry.tracingHandler);
